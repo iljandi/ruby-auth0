@@ -7,18 +7,18 @@ class Auth0::Client
 
   def register_user(options)
     response = self.class.post(
-      '/api/users/',
+       '/api/v2/users',
       body:
         {
           email: options.fetch(:email),
           password: options.fetch(:password),
           connection: options.fetch(:connection),
           email_verified: options.fetch(:email_verified),
-          two_factor: options.fetch(:two_factor)
+          app_metadata: { two_factor: options.fetch(:two_factor) }
         }.to_json
     )
 
-    if response.code == 200
+    if response.code == 201
       response.body
     else
       fail Auth0::Exception, response.body
@@ -31,29 +31,29 @@ class Auth0::Client
   end
 
   def find_user(email)
-    uri = URI.escape("/api/users?search=email:#{email}")
+    uri = URI.escape('/api/v2/users?q=email:"' + email + '"&search_engine=v2')
     response = self.class.get(uri)
     JSON.parse(response.body)
   end
 
   def update_user_metadata(id, options)
-    update_user(:metadata, id, options)
+    update_user(:id, { app_metadata: options } )
   end
 
   def update_user_password(id, password, verify = true)
-    update_user(:password, id, password: password, verify: verify)
+    update_user(id, password: password, verify_password: verify)
   end
 
   def update_user_email(id, email, verify = true)
-    update_user(:email, id, email: email, verify: verify)
+    update_user(id, email: email, verify_email: verify)
   end
 
   def update_user_two_factor(id, value)
-    update_user(:metadata, id, { two_factor: value }, :patch)
+    update_user(id, { app_metadata: { two_factor: value }}, :patch)
   end
 
-  def update_user(type, id, options, method = :put)
-    uri = URI.escape("/api/users/#{id}/#{type}")
+  def update_user(id, options, method = :patch)
+    uri = URI.escape("/api/v2/users/#{id}")
     response = self.class.send(method, uri, body: options.to_json)
 
     if response.code == 200
